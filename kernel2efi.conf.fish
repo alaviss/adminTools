@@ -1,0 +1,5 @@
+set -g releaseFile "/etc/arch-release"
+set -g kernelCmd "rw root="
+set -g efiStub "/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+set -g extraInitrd "/boot/intel-ucode.img"
+set -g buildDir "build"

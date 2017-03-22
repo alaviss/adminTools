@@ -1,0 +1,105 @@
+#!/usr/bin/fish
+
+# kernel2efi: generate an efistub image from a linux kernel
+# This file is part of adminTools. It is subject to the license terms in the
+# LICENSE file found in the top-level directory of this distribution
+# No part of adminTools, including this file, may be copied, modified,
+# propagated, or distributed except according to the terms contained in
+# the LICENSE file.
+
+set scriptDir (dirname (status -f))
+source "$scriptDir"/common.fish
+source "$scriptDir"/kernel2efi.conf.fish
+
+if not set -q argv
+  error "please specify an kernel name"
+  echo "usage: "(basename (status -f)) "[kernel name]"
+  exit 1
+end
+
+if findmnt -sM /boot >/dev/null
+  and not findmnt -M /boot >/dev/null
+  error "/boot is not mounted"
+  exit 1
+end
+
+if not set -q releaseFile kernelCmd efiStub buildDir
+  error "invaild configuration"
+  exit 1
+end
+
+if test ! -e "$efiStub"
+  error "cannot find efistub at $efiStub"
+  exit 1
+end
+
+set kernName $argv[1]
+set kernImg /boot/vmlinuz-$kernName
+set kernInitrd /boot/initramfs-$kernName.img
+
+if test ! -e "$kernImg"
+  error "kernel '$kernName' doesn't exist ($kernImg not found)"
+  exit 1
+end
+
+if test ! -e "$kernInitrd"
+  error "initramfs for kernel '$kernName' doesn't exist ($kernInitrd not found)"
+  exit 1
+end
+
+if set -q extraInitrd
+  for v in $extraInitrd
+    if test ! -e $v
+      error "extra initramfs image '$v' doesn't exist"
+      exit 1
+    end
+  end
+end
+
+info "kernel image:" "$kernImg"
+info "kernel initramfs:" "$kernInitrd"
+if set -q extraInitrd
+  info "extra initramfs:" "$extraInitrd"
+end
+info "release file:" "$releaseFile"
+info "kernel command line:" "$kernelCmd"
+info "build directory:" "$buildDir"
+
+if test ! -e "$buildDir"
+  mkdir "$buildDir"
+end
+
+if test ! -d "$buildDir"
+  error "$buildDir is not an directory"
+  exit 1
+end
+
+warn "'$buildDir' will be deleted after completion"
+
+if test -e "$kernName.efi"
+  warn "'$kernName.efi' will be overwritten"
+end
+
+set outDir (pwd)
+
+pushd "$buildDir"
+
+if not set -q extraInitrd
+  set -g extraInitrd ""
+end
+
+cat $kernInitrd $extraInitrd > init.img
+echo "$kernelCmd" > kernCmd.txt
+
+objcopy --add-section ".osrel=$releaseFile" --change-section-vma ".osrel=0x20000" \
+  --add-section ".cmdline=kernCmd.txt" --change-section-vma ".cmdline=0x30000" \
+  --add-section ".linux=$kernImg" --change-section-vma ".linux=0x40000" \
+  --add-section ".initrd=init.img" --change-section-vma ".initrd=0x3000000" \
+  "$efiStub" "$outDir"/"$kernName".efi
+
+and ok "generated efistub image:" "$kernName".efi
+or error "unable to generate efistub image"
+
+popd
+rm -rf "$buildDir"
+# vim: set ft=fish et:
