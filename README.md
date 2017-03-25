@@ -6,10 +6,10 @@ correctly with other distributions.
 
 ## kernel2efi
 
-A simple fish shell script to generate an EfiStub image
+A simple fish shell script to generate an EfiStub image.
 
     usage: kernel2efi [kernel name]
 
-# License
+## License
 
-The license could be found in the included LICENSE file
+The license could be found in the included LICENSE file.
